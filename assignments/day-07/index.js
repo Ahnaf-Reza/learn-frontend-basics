@@ -13,13 +13,18 @@ const MiniReact = (function () {
   }
 
   function useEffect(callback, depArray) {
-    // TODO: Implement
-    // 1. Check if we have old deps at hooks[idx]
-    // 2. Compare old deps vs new deps (Array.every)
-    // 3. If changed (or first run), run callback
-    // 4. Save cleanup function?
+    const hasNoDeps = !depArray;
+    const oldHook = hooks[idx];
+    const hasChangedDeps = oldHook
+      ? !depArray.every((dep, i) => dep === oldHook.deps[i])
+      : true;
+
+    if (hasNoDeps || hasChangedDeps) {
+      if (oldHook && oldHook.cleanup) oldHook.cleanup();
+      const cleanup = callback();
+      hooks[idx] = { deps: depArray, cleanup };
+    }
     idx++;
-    throw new Error("Not implemented");
   }
 
   function render(Component) {

@@ -2,7 +2,13 @@
  * 1. DeepPartial
  * Make every property recursively optional.
  */
-export type DeepPartial<T> = any; // TODO: Implement
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends (infer U)
+    ? DeepPartial<U>[]
+    : T[P] extends object
+    ? DeepPartial<T[P]>
+    : T[P];
+};
 
 /**
  * 2. EventBus
@@ -11,24 +17,29 @@ export type DeepPartial<T> = any; // TODO: Implement
  */
 export class EventBus<T extends Record<string, any>> {
   // Store listeners
-  private listeners: any = {};
+  private listeners: { [K in keyof T]?: Array<(payload: T[K]) => void> } = {};
 
   on<K extends keyof T>(event: K, callback: (payload: T[K]) => void): void {
-    // TODO: Implement
-    throw new Error("Not implemented");
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
   }
 
   emit<K extends keyof T>(event: K, payload: T[K]): void {
-    // TODO: Implement
-    throw new Error("Not implemented");
+    const callbacks = this.listeners[event];
+    if (callbacks) {
+      callbacks.forEach((callback: (payload: T[K]) => void) => callback(payload));
+    }
   }
 }
+
 
 /**
  * 3. Type Guards
  * Implement a reliable check.
  */
 export function isError(x: unknown): x is Error {
-  // TODO: Implement
-  throw new Error("Not implemented");
+  return x instanceof Error;
 }
+

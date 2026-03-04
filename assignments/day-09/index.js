@@ -3,9 +3,11 @@
  * Decode the payload (2nd part) of a JWT.
  */
 function parseJWT(token) {
-  // TODO: Implement
-  // Split, Decode, Parse
-  throw new Error("Not implemented");
+  const base64Url = token.split(".")[1];
+
+  const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+
+  return JSON.parse(atob(base64));
 }
 
 /**
@@ -21,9 +23,9 @@ class CsrfManager {
   }
 
   inject(request) {
-    // TODO: Implement
-    // request.headers['X-CSRF-Token'] = this.token;
-    throw new Error("Not implemented");
+    request.headers = request.headers || {};
+
+    request.headers["X-CSRF-Token"] = this.token;
   }
 }
 
@@ -38,11 +40,13 @@ const POLICIES = {
 };
 
 function hasPermission(user, resource, action) {
-  // TODO: Implement
-  // User object has { roles: ['editor'] }
-  // Check POLICIES.
-  // If Admin -> true.
-  throw new Error("Not implemented");
+  if (user.roles.includes("admin")) return true;
+
+  const allowedRoles = POLICIES[resource] && POLICIES[resource][action];
+
+  if (!allowedRoles) return false;
+
+  return user.roles.some((role) => allowedRoles.includes(role));
 }
 
 module.exports = { parseJWT, CsrfManager, hasPermission, POLICIES };

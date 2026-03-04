@@ -6,12 +6,22 @@ const MiniReact = (function () {
   // but for this assignment we focus on useMemo.
 
   function useMemo(factory, deps) {
-    // TODO: Implement
-    // 1. Check previous hook
-    // 2. Compare deps
-    // 3. Return cached or new value
+    const oldHook = hooks[idx];
+
+    const hasNoChange =
+      oldHook &&
+      deps.every((dep, i) => dep === oldHook.deps[i]);
+
+    if (hasNoChange) {
+      idx++;
+      return oldHook.value;
+    }
+
+    const value = factory();
+    hooks[idx] = { value, deps };
     idx++;
-    throw new Error("Not implemented");
+
+    return value;
   }
 
   function render(Component) {

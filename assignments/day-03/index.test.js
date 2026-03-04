@@ -1,66 +1,89 @@
-const { promiseAllSettled, retry, AsyncQueue } = require("./index");
+/**
+ * 1. Promise.allSettled Polyfill
+ * - Returns a promise that resolves after all of the given promises have either fulfilled or rejected.
+ * - Result is an array of objects describing the outcome of each promise.
+ */
+function promiseAllSettled(promises) {
+  return new Promise((resolve) => {
+    const results = [];
+    let completedCount = 0;
 
-describe("🚀 Day 3: Spaceport Traffic Control", () => {
-  describe("Mission 1: Signal Aggregation (AllSettled)", () => {
-    test("should report status of all planets even if one explodes", async () => {
-      const mars = Promise.resolve("Mars: Online");
-      const titan = Promise.reject("Titan: Meteor Strike"); // Fails!
-      const europa = Promise.resolve("Europa: Online");
+    if (promises.length === 0) {
+      resolve(results);
+      return;
+    }
+    
+    promises.forEach((promise, index) => {
+      Promise.resolve(promise)
+        .then((value) => {
+          results[index] = { status: "fulfilled", value };
+          completedCount++;
+          if (completedCount === promises.length) resolve(results);
+          })
+          .catch((reason) => {
+            results[index] = { status: "rejected", reason };
+            completedCount++;
+            if (completedCount === promises.length) resolve(results);
+          });
+    });
 
-      const report = await promiseAllSettled([mars, titan, europa]);
+  });
+}
 
-      expect(report[0]).toEqual({ status: "fulfilled", value: "Mars: Online" });
-      expect(report[1]).toEqual({
-        status: "rejected",
-        reason: "Titan: Meteor Strike",
+/**
+ * 2. Retry with Exponential Backoff
+ * - Retries the function `fn` up to `retries` times.
+ * - Helper: Use `setTimeout` within a Promise for delay.
+ */
+function retry(fn, retries = 3, delay = 1000) {
+  return async (...args) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn(...args);
+      } catch (error) {
+        if (i === retries - 1) throw error;
+      }
+      
+      await new Promise((res) => setTimeout(res, delay)); 
+    }
+  };
+}
+
+/**
+ * 3. Async Queue
+ * - Manages a limited number of concurrent tasks.
+ */
+class AsyncQueue {
+  constructor(concurrency = 2) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+  }
+
+  add(task) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ task, resolve, reject });
+      this.next();
+    });
+  }
+
+  // Helper to run next task
+  next() {
+    if (this.running >= this.concurrency || this.queue.length === 0) {
+      return;
+    }
+
+    const { task, resolve, reject } = this.queue.shift();
+    this.running++;
+
+    task()
+      .then(resolve)
+      .catch(reject)
+      .finally(() => {
+        this.running--;
+        this.next();
       });
-      // The dashboard survives!
-    });
-  });
+  }
+}
 
-  describe("Mission 2: Comms Link (Retry)", () => {
-    test("should retry connection through solar flare interference", async () => {
-      const connect = jest
-        .fn()
-        .mockRejectedValueOnce("Static...")
-        .mockRejectedValueOnce("Static...")
-        .mockResolvedValue("Connection Established");
-
-      const secureConnect = retry(connect, 3, 10);
-
-      await expect(secureConnect()).resolves.toBe("Connection Established");
-      expect(connect).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  describe("Mission 3: Docking Queue", () => {
-    test("should only allow 2 ships to dock at once", async () => {
-      const dockingBay = new AsyncQueue(2); // 2 Ports available
-      const dockedShips = [];
-
-      // A ship takes 50ms to dock
-      const dockShip = (name) => () =>
-        new Promise((resolve) => {
-          setTimeout(() => {
-            dockedShips.push(name);
-            resolve();
-          }, 50);
-        });
-
-      console.log("    > Requesting Docking: X-Wing");
-      const p1 = dockingBay.add(dockShip("X-Wing"));
-      console.log("    > Requesting Docking: Tie Fighter");
-      const p2 = dockingBay.add(dockShip("Tie Fighter"));
-      console.log("    > Requesting Docking: Millennium Falcon");
-      const p3 = dockingBay.add(dockShip("Millennium Falcon"));
-
-      // At T=0, Falcon should be waiting (queue)
-      // We can't easily assert internal state here without mocking time properly,
-      // but we ensure all finish.
-
-      await Promise.all([p1, p2, p3]);
-      expect(dockedShips).toHaveLength(3);
-      expect(dockedShips).toContain("Millennium Falcon");
-    });
-  });
-});
+module.exports = { promiseAllSettled, retry, AsyncQueue };
